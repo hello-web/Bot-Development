@@ -1,0 +1,57 @@
+answerLocation tree
+answerLocation tree
+answerLocation cat
+answerLocation cat
+answerLocation dog
+answerLocation dog
+goToLocation tree
+goToLocation dog
+goToLocation cat
+grabObject dog
+grabObject dog
+grabObject dog
+grabObject dog
+deGrabObject dog
+deGrabObject dog
+deGrabObject dog
+deGrabObject dog
+grabObject cat
+grabObject cat
+grabObject cat
+grabObject cat
+deGrabObject cat
+deGrabObject cat
+deGrabObject cat
+deGrabObject cat
+moveObjectToLocation dog tree
+moveObjectToLocation dog tree
+moveObjectToLocation dog tree
+moveObjectToLocation dog tree
+moveObjectToLocation dog tree
+moveObjectToLocation dog cat
+moveObjectToLocation dog cat
+moveObjectToLocation dog cat
+moveObjectToLocation dog cat
+moveObjectToLocation dog cat
+moveObjectToLocation cat tree
+moveObjectToLocation cat tree
+moveObjectToLocation cat tree
+moveObjectToLocation cat tree
+moveObjectToLocation cat tree
+moveObjectToLocation cat dog
+moveObjectToLocation cat dog
+moveObjectToLocation cat dog
+moveObjectToLocation cat dog
+moveObjectToLocation cat dog
+go home
+sitDown
+standUp
+sayName
+sayName
+sayAge
+superman
+superman
+fly
+jump
+backflip
+dance
