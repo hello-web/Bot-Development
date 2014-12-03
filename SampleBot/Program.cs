@@ -16,7 +16,11 @@ using log4net;
 using log4net.Config;
 
 namespace SampleBot
-{
+{	
+	class DemoMethodType {
+		public string methodName;
+		public string[] paras;
+	}
 	class Program
 	{
 		private static readonly ILog Log = LogManager.GetLogger (typeof(Program));
@@ -44,6 +48,7 @@ namespace SampleBot
 
 		public static void Main (string[] args) {
 			LoadCmdDicts ("/home/mario/Downloads/cmd_transcription");
+
 			XmlConfigurator.Configure (new System.IO.FileInfo ("SampleBot.exe.config"));
 
 			OpenMetaverseClient.Settings.LOGIN_SERVER = "http://192.168.56.101:9000";
@@ -73,15 +78,12 @@ namespace SampleBot
 				keyWordsDict.Add(words[i].Replace("\n",""), 0);
 			}
 
-			path = dir + "/valid_cmds_filtered.txt";
+			path = dir + "/valid_cmds_filtered_demo.txt";
 			string[] cmd_keywords = System.IO.File.ReadAllLines (path);
-			path = dir + "/valid_cmds_funcs.txt";
+			path = dir + "/valid_cmds_funcs_demo.txt";
 			string[] cmds = System.IO.File.ReadAllLines (path);
 			for (int i = 0; i < cmd_keywords.Length; i++) {
 				keyWordToCmdMap.Add(cmd_keywords[i], cmds[i]);
-			}
-			if (keyWordToCmdMap.Contains ("superman")) {
-				int hh = 1 + 1;
 			}
 		}
 
@@ -100,6 +102,17 @@ namespace SampleBot
 				}
 			}
 			return cmdFiltered;
+		}
+
+		private static DemoMethodType AnalysisFunctionPrototype (string funcStr) {
+			string[] strSplit = funcStr.Split (' ');
+			DemoMethodType method = new DemoMethodType ();
+			method.methodName = strSplit [0];
+			method.paras = new string[strSplit.Length-1];
+			for (int i = 1; i < strSplit.Length; i++) {
+				method.paras [i - 1] = strSplit [i];
+			}
+			return method;
 		}
 
 		private static void WriteToChat (string text) {
@@ -256,10 +269,14 @@ namespace SampleBot
 				}
 				String cmdFiltered = FilterCmd(dep);
 				if (keyWordToCmdMap.ContainsKey(cmdFiltered)) {
+					string funcStr = keyWordToCmdMap [cmdFiltered].ToString();
+					DemoMethodType methodInfo = AnalysisFunctionPrototype (funcStr);
+
 					Type type = typeof(Program);
-					string methodName = keyWordToCmdMap [cmdFiltered].ToString();
+					string methodName = methodInfo.methodName;
+					string[] paras = methodInfo.paras;
 					MethodInfo info = type.GetMethod(methodName);
-					info.Invoke(null, null);
+					info.Invoke(null, new object[]{paras});
 				}
 			} else {
 				System.Console.WriteLine ("NO SPEECH");
@@ -267,26 +284,109 @@ namespace SampleBot
 			ASRTimer.Start ();
 		}
 
-		static public void sitDown() {
+		static public void sitDown(string[] paras) {
 			OpenMetaverseClient.Self.SitOnGround ();
 		}
 
-		static public void standUp() {
+		static public void standUp(string[] paras) {
 			OpenMetaverseClient.Self.Stand ();
 		}
 
-		static public void superman() {
+		static public void superman(string[] paras) {
 			OpenMetaverseClient.Self.AnimationStart (Animations.FLY, false);
 			WriteToChat ("go go Go!");
 			Thread.Sleep (5000);
 			OpenMetaverseClient.Self.AnimationStop (Animations.FLY, false);
 		}
 
-		static public void jump() {
+		static public void jump(string[] paras) {
 			OpenMetaverseClient.Self.AnimationStart (Animations.JUMP_FOR_JOY, false);
 			WriteToChat ("Oh Yeah");
 			Thread.Sleep (5000);
 			OpenMetaverseClient.Self.AnimationStop (Animations.JUMP_FOR_JOY, false);
+		}
+
+		static public void moveObjectToLocation(string[] paras) {
+			return;
+		}
+
+		static private double getDistance(Vector3 v1, Vector3 v2) {
+			double distance = Math.Sqrt (Math.Pow (v1.X - v2.X, 2.0) +
+				Math.Pow (v1.Y - v2.Y, 2.0) +
+				Math.Pow (v1.Z - v2.Z, 2.0));
+			return distance;
+		}
+		// answer the distance of nearest object
+		static private Primitive getNearestObject(string objectName) {
+			Vector3 botPosition = OpenMetaverseClient.Self.SimPosition;
+			Vector3 objectPosition;
+			Primitive nearestObject = null;
+			double minDistance = Double.MaxValue;
+			lock (objects) {
+				foreach (Primitive worldObject in objects) {
+					string name;
+					switch (worldObject.PrimData.PCode) {
+					case PCode.Prim:
+						name = worldObject.Properties.Name.ToString ();
+						break;
+					default:
+						name = worldObject.PrimData.PCode.ToString ();
+						break;
+					}
+					name = name.ToLower ();
+					if (name.Contains (objectName)) {
+						objectPosition = worldObject.Position;
+						double distance = getDistance (botPosition, objectPosition);
+						if (distance < minDistance) {
+							minDistance = distance;
+							nearestObject = worldObject;
+						}
+					}
+				}
+			}
+			if (nearestObject == null) {
+				lock (objects) {
+					foreach (Primitive worldObject in objects) {
+						string type;
+						switch (worldObject.PrimData.PCode) {
+						case PCode.Prim:
+							type = worldObject.Type.ToString ();
+							break;
+						default:
+							type = worldObject.PrimData.PCode.ToString ();
+							break;
+						}
+						type = type.ToLower ();
+						if (type == objectName) {
+							objectPosition = worldObject.Position;
+							double distance = getDistance (botPosition, objectPosition);
+							if (distance < minDistance) {
+								minDistance = distance;
+								nearestObject = worldObject;
+							}
+						}
+					}
+				}
+			}
+			return nearestObject;
+		}
+
+		// say the location of nearest object
+		static public void answerLocation(string[] paras) {
+			string objectName = paras [0];
+			getObjects ();
+			Primitive targetobj = getNearestObject (objectName);
+			string chatText;
+			if (targetobj == null) {
+				chatText = String.Format ("I can't find {0} around here.", objectName);
+			} else {
+				double distance = getDistance (OpenMetaverseClient.Self.SimPosition, targetobj.Position);
+				StringBuilder chatBuilder = new StringBuilder ("The nearest ");
+				chatBuilder.Append (objectName);
+				chatBuilder.Append (" from me is ").Append (String.Format ("{0:0.##}", distance)).Append (" meters away.");
+				chatText = chatBuilder.ToString ();
+			}
+			WriteToChat (chatText);
 		}
 	}
 }
