@@ -1,0 +1,82 @@
+where am i
+where's the tree
+how far is the tree
+how tall is the tree
+where's the cat
+how tall is the cat
+how far is the cat
+where's the dog
+how tall is the dog
+how far is the dog
+go to the tree
+go to the dog
+go to the cat
+go to the water
+take the dog
+lift the dog
+hold the dog
+grab the dog
+free the dog
+let go the dog
+drop the dog
+just put the dog down
+take the cat
+lift the cat
+hold the cat
+grab the cat
+free the cat
+let go the cat
+drop the cat
+just put the cat down
+put the dog to the tree
+take the dog to the tree
+drop the dog at the tree
+move the dog to the tree
+place the dog near the tree
+put the dog near the water
+take the dog to the water
+drop the dog near the water
+move the dog to the water
+place the dog near the water
+put the dog near the cat
+take the dog to the cat
+drop the dog near the cat
+move the dog to the cat
+place the dog near the cat
+put the cat to the tree
+take the cat to the tree
+drop the cat at the tree
+move the cat to the tree
+place the cat near the tree
+put the cat near the water
+take the cat to the water
+drop the cat near the water
+move the cat to the water
+place the cat near the water
+put the cat near the dog
+take the cat to the dog
+drop the cat near the dog
+move the cat to the dog
+place the cat near the dog
+give me the dog
+bring me the dog
+move the dog here
+give me the cat
+bring me the cat
+move the cat here
+leave me alone
+go home
+sitDown
+standUp
+what's your name
+who are you
+how old are you
+superman
+superman
+fly
+jump
+backflip
+dance
+stop following me
+follow me
+come here

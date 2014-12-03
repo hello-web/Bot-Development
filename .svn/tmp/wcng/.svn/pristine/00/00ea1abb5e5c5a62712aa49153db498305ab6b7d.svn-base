@@ -1,0 +1,12 @@
+#JSGF V1.0 UTF-8;
+grammar mainGrammar;
+
+public <cmd> = STOP | (GO FORWARD) | (GO BACKWARD) |  (TURN (LEFT | RIGHT)) | <find>;
+
+      <find> = RETRIEVE <obj>;
+
+      <obj>	= [<adj>] <noun>;
+	
+      <adj>	= BIG | SMALL | TALL | RED | BLUE | GREEN | YELLOW | PURPLE;
+
+      <noun> = HOUSE | BALL | TREE | CUBE | BOX;

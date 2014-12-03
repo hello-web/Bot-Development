@@ -1,0 +1,26 @@
+LLWearable version 22
+eyes2
+
+	permissions 0
+	{
+		base_mask	7fffffff
+		owner_mask	7fffffff
+		group_mask	00000000
+		everyone_mask	00000000
+		next_owner_mask	00082000
+		creator_id	4f98e445-bf04-4000-ae91-de991f2a362b
+		owner_id	4f98e445-bf04-4000-ae91-de991f2a362b
+		last_owner_id	4f98e445-bf04-4000-ae91-de991f2a362b
+		group_id	00000000-0000-0000-0000-000000000000
+	}
+	sale_info	0
+	{
+		sale_type	not
+		sale_price	10
+	}
+type 3
+parameters 2
+98 .02
+99 .03
+textures 1
+3 6522e74d-1660-4e7f-b601-6f48c1659a77

@@ -1,0 +1,253 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Reflection;
+using ALIVE;
+/*using System.Speech.Synthesis;
+using System.Speech.Recognition;
+using System.Speech.Recognition.SrgsGrammar;*/
+using System.Collections.ObjectModel;
+
+namespace DogsBrain
+{
+    public class dogTask
+    {
+        public string task_name;
+        public DogsMind myMind;
+        public CD taskArgs;
+        public ArrayList target_objects;
+        public static List<string> tasks = new List<string> { "turn", "turn_to_object", "turn_around", "go", "go_to_object", "go_to_center", "find_object", "report", "pick_up_object", "pick_it_up", "drop_it", "go_back"};
+        public dogTask(DogsMind dm, string t_name)
+        {
+            task_name = t_name;   // task name
+            myMind = dm;
+            target_objects = new ArrayList();
+            dm.myDog.Coordinates(out dm.myContext.start_pos_x, out dm.myContext.start_pos_y);
+            dm.myContext.start_angle = dm.myDog.Orientation();
+        }
+
+        public void turn()
+        {
+            Hashtable args = taskArgs.PropList;
+            string turn_dir = "left";
+            if (args["turn_direction:"] != null) turn_dir = (string)args["turn_direction:"];
+            int turn_deg = 90;
+            if (args["num:"] != null) turn_deg = (int)args["num:"];
+            switch (turn_dir)
+            {
+                case "left":
+                    myMind.myDog.TurnLeft(turn_deg);
+                    break;
+                case "right":
+                    myMind.myDog.TurnRight(turn_deg);
+                    break;
+                case "around":
+                    myMind.myDog.TurnLeft(180);
+                    break;
+            }
+        }
+
+        public void turn_to_object()
+        {
+            CD target_CD = (CD)taskArgs.PropList["object:"];
+            AliveObject target;
+            float conf = dogTricks.selectKnowObject(myMind, target_CD, out target);
+            if (conf > .5F)
+            {
+                myMind.myDog.TurnTo(target.X, target.Y);
+                myMind.myContext.last_focus = target;
+                return;
+            }
+          //  myMind.mySynth.SpeakAsync("I don't see the right target");
+        }
+
+        public void turn_around()
+        {
+            myMind.myDog.TurnLeft(180);
+        }
+
+        public void go()
+        {
+            Hashtable args = taskArgs.PropList;
+            string go_dir = "forward";
+            if (args["go_direction:"] != null) go_dir = (string)args["go_direction:"];
+            int go_dist = 5;
+            if (args["num:"] != null) go_dist = (int)args["num:"];
+            if (go_dir == "forward")
+            {
+                myMind.myDog.GoForward(go_dist);
+            }
+            else
+            {
+                myMind.myDog.GoBackward(go_dist);
+            }
+            myMind.update_explored();
+        }
+
+        public void go_to_object()
+        {
+            CD target_CD = (CD)taskArgs.PropList["object:"];
+            AliveObject target;
+            float conf = dogTricks.selectKnowObject(myMind, target_CD, out target);
+            if (conf > .5F)
+            {
+                float xx = (float)target.X;
+                float yy = (float)target.Y;
+                dogTricks.walk_to_point(myMind, target);
+                myMind.myDog.TurnTo(xx, yy);
+                myMind.myContext.last_focus = target;
+                return;
+            }
+  //          myMind.mySynth.SpeakAsync("I don't see the right target");
+        }
+
+        public void go_to_center()
+        {
+            dogTricks.walk_to_point(myMind, 128, 128);
+        }
+
+        public void go_back()
+        {
+            dogTricks.walk_to_point(myMind, myMind.myContext.start_pos_x, myMind.myContext.start_pos_y);
+        }
+
+        public void find_object()
+        {
+            CD target_CD = (CD)taskArgs.PropList["object:"];
+            if (target_CD == null)
+            {
+    //            myMind.mySynth.SpeakAsync("No target specified");
+                return;
+            }
+            AliveObject target;
+            float conf;
+            int fx, fy; //frontier point coordinates
+            Console.WriteLine("Looking for: " + target_CD.ToSexp());
+            bool new_objects_flag = true;
+            for (int i=0;i<10;i++)
+            {
+                if (new_objects_flag)
+                {
+                    conf = dogTricks.selectKnowObject(myMind, target_CD, out target);
+                    if (conf == 0 || target == null)
+                    {
+                        Console.WriteLine("Known objects do not match the description");
+                    }
+                    else
+                    {
+                        Console.WriteLine(target.name + " matches with conf " + conf.ToString());
+                    }
+                    if (conf > .3)
+                    {
+                        Console.WriteLine(target.name + " is the best target with conf " + conf.ToString());
+                        dogTricks.walk_to_point(myMind,target);
+                        myMind.myDog.TurnTo(target.X, target.Y);
+                        myMind.myContext.last_focus = target;
+                        Console.WriteLine("At the target");
+
+                        // Wei Chen 2010-04-21
+                        if (myMind.myDog.PickupObject(target))
+                            Console.WriteLine("Carried the target");
+
+                        // Wei Chen 2010-04-21
+                        dogTricks.walk_to_point(myMind, Convert.ToSingle(128), Convert.ToSingle(128));
+                        myMind.myDog.DropObject(target);
+
+                        return;
+                    }
+                }
+                Console.WriteLine("Explore new ground");
+                if (dogTricks.find_unexplored(myMind,target_CD,out fx, out fy, 25) == false) break;
+                dogTricks.walkTo(myMind, fx, fy, 10);
+                myMind.update_explored();
+                if (myMind.myContext.new_objects == null || myMind.myContext.new_objects.Count == 0) new_objects_flag = false;
+            }
+      //      myMind.mySynth.SpeakAsync("I can't find the right target");
+            Console.WriteLine("Gave up on finding the target");
+        }
+
+        public void report()
+        {
+            string message = "";
+            foreach (DictionaryEntry i in myMind.knownObjects)
+            {
+                string fam = (string)i.Key;
+                Hashtable famObjs = (Hashtable)i.Value;
+                if (famObjs == null) break;
+                int c = famObjs.Count;
+                if (c == 0) break;
+                string plural = "";
+                if (c > 1) plural = "s";
+                message = message + "I see " + c.ToString() + " " + fam + plural + "\r\n";
+                foreach (DictionaryEntry j in famObjs)
+                {
+                    AliveObject obj = (AliveObject)j.Value;
+                    string name = obj.name;
+                    string x = obj.X.ToString();
+                    string y = obj.Y.ToString();
+                    string color = obj.color;
+                    string height = obj.height.ToString();
+                    string width = obj.width.ToString();
+                    message = message + "   " + name + " " + color + " at (" + x + " , " + y + ")  height = " + height + " width = " + width + "\r\n";
+                }
+            }
+            Console.WriteLine(message);
+        }
+
+        public void pick_up_object()
+        {
+            CD target_CD = (CD)taskArgs.PropList["object:"];
+            AliveObject target;
+            float conf = dogTricks.selectKnowObject(myMind, target_CD, out target);
+            if (conf > .5F)
+            {
+                float xx = (float)target.X;
+                float yy = (float)target.Y;
+                dogTricks.walk_to_point(myMind, target);
+                myMind.myDog.TurnTo(xx, yy);
+                if (target.movable == false)
+                {
+        //            myMind.mySynth.SpeakAsync("The target is not movable");
+                    return;
+                }
+                if (myMind.myDog.PickupObject(target)) myMind.myContext.carried_object = target;
+                else
+                {
+                    myMind.myContext.carried_object = null;
+        //            myMind.mySynth.SpeakAsync("I cannot pick up the target");
+                }
+                return;
+            }
+      //      myMind.mySynth.SpeakAsync("I don't see the right target");
+        }
+
+        public void pick_it_up()
+        {
+            AliveObject target = myMind.myContext.last_focus;
+            if (target == null) { }//myMind.mySynth.SpeakAsync("I don't remember the target");
+            else
+            {
+                if (myMind.myDog.PickupObject(target)) myMind.myContext.carried_object = target;
+                else
+                {
+                    myMind.myContext.carried_object = null;
+             //       myMind.mySynth.SpeakAsync("I cannot pick up the target");
+                }
+            }
+        }
+
+        public void drop_it()
+        {
+            AliveObject target = myMind.myContext.carried_object;
+            if (target == null) { }//myMind.mySynth.SpeakAsync("I am not carrying anything");
+            else
+            {
+                myMind.myDog.DropObject(target);
+                myMind.myContext.carried_object = null;
+            }
+        }
+    }
+
+}

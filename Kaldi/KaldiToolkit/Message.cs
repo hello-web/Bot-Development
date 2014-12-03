@@ -1,0 +1,102 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Runtime.Serialization;
+
+namespace Kaldi
+{
+    namespace KaldiToolkit
+    {
+        [Serializable]
+        public class Message
+        {
+            private static readonly Regex CommandRegex = new Regex("^([A-Z]+)\\((.*)\\)$");
+            private static readonly Regex ParameterRegex = new Regex("^(\\s*(>?[^\",]*|\"\"|\"(>?[^\"]*|\\\\\")*[^\\\\]\") *)(?>,.*|$)");
+
+            private readonly string command;
+            public string Command
+            {
+                get
+                {
+                    return command;
+                }
+            }
+
+            private readonly List<string> parameters;
+            public IList<string> Parameters
+            {
+                get
+                {
+                    return parameters.AsReadOnly();
+                }
+            }
+
+            public Message(string command, params string[] parameters)
+            {
+                this.command = command;
+                this.parameters = new List<string>(parameters);
+            }
+
+            public Message(string messageString)
+            {
+                messageString = messageString.Trim();
+                if (!CommandRegex.IsMatch(messageString))
+                {
+                    throw new ArgumentException("Invalid message string format", "messageString");
+                }
+
+                GroupCollection commandGroups = CommandRegex.Match(messageString).Groups;
+                this.command = commandGroups[1].Value;
+                List<string> parameters = new List<string>();
+                string parameterString = commandGroups[2].Value;
+
+                while (!String.IsNullOrEmpty(parameterString) && ParameterRegex.IsMatch(parameterString))
+                {
+                    GroupCollection parameterGroups = ParameterRegex.Match(parameterString).Groups;
+                    string parameter = parameterGroups[1].Value;
+                    int parameterLength = parameter.Length + 1;
+                    if (parameterLength < parameterString.Length)
+                    {
+                        parameterString = parameterString.Substring(parameterLength);
+                    }
+                    else
+                    {
+                        parameterString = null;
+                    }
+
+                    parameter = parameter.Trim();
+
+                    if (parameter.Length > 0)
+                    {
+                        if (parameter[0] == '"') parameter = parameter.Substring(1);
+                        if (parameter[parameter.Length - 1] == '"')
+                        {
+                            if (parameter.Length == 1) parameter = "";
+                            else parameter = parameter.Substring(0, parameter.Length - 1);
+                        }
+                    }
+
+                    parameters.Add(parameter);
+                }
+
+                this.parameters = parameters;
+            }
+
+            public override String ToString()
+            {
+                StringBuilder builder = new StringBuilder(this.Command);
+                builder.Append("(");
+                for (int i = 0; i < this.Parameters.Count - 1; i++)
+                {
+                    builder.Append(this.Parameters[i]);
+                    builder.Append(", ");
+                }
+                builder.Append(Parameters[Parameters.Count - 1]);
+                builder.Append(")\r\n");
+                return builder.ToString();
+            }
+        }
+    }
+}

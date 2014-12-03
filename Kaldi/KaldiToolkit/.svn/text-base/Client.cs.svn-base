@@ -1,0 +1,77 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
+using System.Text;
+using log4net;
+
+namespace Janus
+{
+    namespace JRTk
+    {
+        public class Client
+        {			
+            private TcpClient tcpClient;
+
+            public Client(string hostname, int port)
+            {
+                this.tcpClient = new TcpClient(hostname, port);
+                Message welcomeMessage = Receive();
+                if (welcomeMessage.Command != "WELCOME")
+                {
+                    throw new ProtocolException(String.Format("Expected WELCOME reply, but got {0}", welcomeMessage.Command));
+                }
+
+                Console.WriteLine("Received WELCOME from {0} version {1}", welcomeMessage.Parameters[0], welcomeMessage.Parameters[1]);
+            }
+
+            public void Send(Message message)
+            {
+				lock (this) {
+	                byte[] messageData = Encoding.ASCII.GetBytes(message.ToString());
+	                tcpClient.GetStream().Write(messageData, 0, messageData.Length);
+					Console.WriteLine("Sent message: {0}", message);
+				}
+            }
+
+            public Message Receive()
+            {
+				lock (this) {
+	                NetworkStream networkStream = tcpClient.GetStream();
+	                StringBuilder builder = new StringBuilder();
+	                byte[] dataBuffer = new byte[1024];
+	                int bytesReceived = 0;
+	                do
+	                {
+	                    bytesReceived = networkStream.Read(dataBuffer, 0, dataBuffer.Length);
+	                    builder.Append(Encoding.ASCII.GetString(dataBuffer, 0, bytesReceived));
+	                }
+	                while (networkStream.DataAvailable);
+	                Message receivedMessage = new Message(builder.ToString());
+	                Console.WriteLine("Received message: {0}", receivedMessage);
+					return receivedMessage;
+				}
+            }
+
+            private bool MakeRequest(RequestMessage request)
+            {
+                Send(request);
+                ReplyMessage reply = new ReplyMessage(Receive());
+                if (reply.IsError)
+                {
+                    throw new RequestException(reply.ErrorMessage);
+                }
+                return reply.IsGranted;
+            }
+
+            public bool MakeRequest(params string[] parameters)
+            {
+				lock (this) {
+                	return MakeRequest(new RequestMessage(parameters));
+				}
+            }
+        }
+    }
+}

@@ -1,0 +1,12 @@
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/obj/Debug/.NETFramework,Version=v4.0.AssemblyAttribute.cs
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/bin/Debug/SampleBot.exe.mdb
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/bin/Debug/SampleBot.exe
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/obj/Debug/SampleBot.exe
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/obj/Debug/SampleBot.exe.mdb
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/bin/Debug/XMLRPC.dll
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/bin/Debug/log4net.dll
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/bin/Debug/OpenMetaverse.dll
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/bin/Debug/OpenMetaverse.StructuredData.dll
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/bin/Debug/OpenMetaverseTypes.dll
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/bin/Debug/Kaldi.dll
+/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/bin/Debug/Kaldi.dll.mdb

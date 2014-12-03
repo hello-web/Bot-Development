@@ -1,0 +1,639 @@
+﻿using System;
+using System.IO;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Text;
+using System.Windows.Forms;
+using System.Threading;
+using System.Net;
+using System.Timers;
+using System.Text.RegularExpressions;
+
+using ALIVE;
+using Janus;
+using log4net;
+using log4net.Config;
+
+/*
+using System.Diagnostics;
+using System.Linq;
+using Janus.JRTk;
+*/
+
+
+// Wei Chen 2010-04-20
+using DogsBrain;
+
+
+namespace MyBot
+{
+    /*
+    class FliteClient
+    {
+        private static readonly int VoicesOutputPrefixLength = 18;
+
+        private readonly string path;
+
+        public FliteClient(string path)
+        {
+            this.path = path;
+        }
+
+        public void Speak(string text, string voice)
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo();
+            startInfo.FileName = this.path;
+            startInfo.UseShellExecute = false;
+            startInfo.WindowStyle = ProcessWindowStyle.Hidden;
+            startInfo.WorkingDirectory = "C:\\cygwin\\bin";
+            startInfo.Arguments = String.Format("\"{0}\" -voice \"{1}\"", text, voice);
+
+            using (Process process = Process.Start(startInfo))
+            {
+                process.WaitForExit();
+            }
+        }
+
+        public HashSet<string> GetVoices()
+        {
+            ProcessStartInfo startInfo = new ProcessStartInfo();
+            startInfo.FileName = this.path;
+            startInfo.UseShellExecute = false;
+            startInfo.RedirectStandardOutput = true;
+            startInfo.WindowStyle = ProcessWindowStyle.Hidden;
+            startInfo.WorkingDirectory = "C:\\cygwin\\bin";
+            startInfo.Arguments = "-lv";
+
+            using (Process process = Process.Start(startInfo))
+            {
+                process.WaitForExit();
+
+                using (StreamReader reader = process.StandardOutput)
+                {
+                    string output = reader.ReadToEnd().Remove(0, VoicesOutputPrefixLength).Trim();
+                    return new HashSet<string>(output.Split(' '));
+                }
+            }
+        }
+    }
+    */
+
+    public partial class BotControlForm1 : Form
+    {
+        private static bool LoginSuccess = false;
+        private ALIVE.SmartDog myAvatar;
+        private List<AliveObject> Prims;
+        private AliveObject carriedPrim = null;
+        private DogsBrain.DogsMind myMind;   // Wei Chen 2010-04-20
+
+        private static Janus.JRTk.Client JanusClient;   // Wei Chen 2010-03-29
+        private static System.Timers.Timer ASRTimer;
+
+   //         System.Timers.Timer ASRTimer;    // Wei Chen 2010-03-29
+/*        private static FliteClient FliteClient = new FliteClient("C:\\cygwin\\usr\\local\\bin\\flite.exe");
+        private static List<string> FliteVoiceNames = new List<string>(new string[] { "kal16", "awb", "rms", "slt" });
+        private static int LastVoiceIndex = -1;
+        private static Dictionary<UUID, string> FliteVoicesByID = new Dictionary<UUID, string>();
+        */
+        
+        
+        //Dictionary<UUID, Primitive> PrimsWaiting = new Dictionary<UUID, Primitive>();
+        AutoResetEvent AllPropertiesReceived = new AutoResetEvent(false);
+
+        // The delegate and the funny-looking method solve an annoying problem of
+        // not being able to update the ChatBox from another thread – the one that
+        // responds to the OnChat events
+        public delegate void textBoxUpdater(TextBox tb, string nvalue);
+
+        public void textBoxUpdate(TextBox tb, string nvalue)
+        {
+            if (tb.InvokeRequired)
+            {
+                tb.Invoke(new textBoxUpdater(textBoxUpdate), new object[] { tb, nvalue });
+                return;
+            }
+            tb.Text = nvalue;
+            tb.SelectionStart = tb.Text.Length;
+            tb.ScrollToCaret();
+            //tb.Refresh();
+        }
+
+        public delegate void objectsTextBoxUpdater(string nvalue);   // Wei Chen 2010-04-20
+
+        public BotControlForm1()
+        {
+            InitializeComponent();
+
+            QuitButton.Click += new EventHandler(QuitButton_Click);
+            MoveButton.Click += new EventHandler(MoveButton_Click);
+            AutoButton.Click += new EventHandler(AutoButton_Click);
+
+            LookButton.Click += new EventHandler(LookButton_Click);
+            dropobjectbutton.Click += new EventHandler(dropobjectbutton_Click);
+            takeobjectbutton.Click += new EventHandler(takeobjectbutton_Click);
+
+            turnleftbutton.Click += new EventHandler(turnleftbutton_Click);
+            turnrightbutton.Click += new EventHandler(turnrightbutton_Click);
+            goforwardbutton.Click += new EventHandler(goforwardbutton_Click);
+            gobackwardbutton.Click += new EventHandler(gobackwardbutton_Click);
+
+            /*WalkButton.Click += new EventHandler(WalkButton_Click);
+            NudgeButton.Click += new EventHandler(NudgeButton_Click);
+            */
+
+            listenButton.Click += new EventHandler(listenButton_Click);  // Wei Chen 2010-04-21
+
+            readchatbutton.Click += new EventHandler(readchatbutton_Click);
+            readmessagebutton.Click += new EventHandler(readmessagebutton_Click);
+            saychatbutton.Click += new EventHandler(saychatbutton_Click);
+            saymessagebutton.Click += new EventHandler(saymessagebutton_Click);
+
+            turntowardbutton.Click += new EventHandler(turntowardbutton_Click);
+            mycoordinatesbutton.Click +=new EventHandler(mycoordinatesbutton_Click);
+            myrotationbutton.Click += new EventHandler(rotationbutton_Click);
+
+            StopButton.Click += new EventHandler(StopButton_Click);  /*Wei Chen 2010-02-25*/
+
+            /// Wei Chen 2010-04-20
+            //SayButton.Click += new EventHandler(SayButton_Click);
+            //speedTrackBar.Scroll += new EventHandler(speedTrackBar_Scroll);
+            //volumeTrackBar.Scroll += new EventHandler(volumeTrackBar_Scroll);
+
+            //force logout and exit when form is closed
+            this.FormClosing += new FormClosingEventHandler(BotControl_FormClosing);
+            concept.initConcepts();  // Wei Chen 2010-04-21
+        }
+
+
+
+/////// SUBROUTINES
+
+
+        void displayMyLocation()
+        {
+            //string myLocation = prettyLocation(client.Self.SimPosition);
+            float x, y;
+            myAvatar.Coordinates(out x, out y);
+            textBoxUpdate(locationBox, "<" + x.ToString("0.0") + "," + y.ToString("0.0") + ">");
+        }
+
+        
+//////  EVENT HANDLERS
+
+        private void BotControl_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            e.Cancel = true;
+            if (myAvatar != null)
+                myAvatar.Logout();
+            Environment.Exit(0);
+        }
+
+        void QuitButton_Click(object sender, EventArgs e)
+        {
+            if (QuitButton.Text == "Login")
+            {
+
+                myAvatar = new ALIVE.SmartDog(FNtextBox.Text, LNtextBox.Text, PWtextBox.Text, URIbox.Text);
+                LoginSuccess = myAvatar.Login();
+                //client.Network.CurrentSim.ObjectsAvatars.ForEach();
+                //client.Network.CurrentSim.ObjectsPrimitives.ForEach();
+                
+                if (LoginSuccess)
+                {
+                    //client.Settings.DISABLE_AGENT_UPDATE_DUPLICATE_CHECK = true;
+
+                  //  QuitButton.Text = "Logout";
+                  //  ChatBox.Visible = true;
+                  //  InputBox.Visible = true;
+                  //  saychatbutton.Visible = true;
+                  //  PWtextBox.Text = "";
+
+                    startEngines();  // Wei Chen 2010-04-20
+                }
+                else
+                {
+                    //MessageBox.Show("Din't work! " + client.Network.LoginMessage);
+                    return;
+                }
+
+                displayMyLocation();
+            }
+            else
+            {
+                //client.Network.Logout();
+                myAvatar.Logout();
+                QuitButton.Text = "Login";
+                ChatBox.Visible = false;
+                InputBox.Visible = false;
+                saychatbutton.Visible = false;
+
+                objectsBox.Text = "";
+                locationBox.Text = "";
+                }
+        }
+
+        private void startEngines()
+        {
+            QuitButton.Text = "Logout";
+            ChatBox.Visible = true;
+            InputBox.Visible = true;
+            saychatbutton.Visible = true;
+            PWtextBox.Text = "";
+
+            JanusClient = new Janus.JRTk.Client("localhost", 9999);  // Wei Chen 2010-03-29 
+            ASRTimer = new System.Timers.Timer(1000);   // Wei Chen 2010-03-29
+
+            
+            ILog Log = LogManager.GetLogger(typeof(SmartDog));
+
+
+            if (!JanusClient.MakeRequest("SELECT AUDIO INPUT MODE", "DEVICE"))
+            {
+                Log.Error("Could not select audio input mode.");
+                return;
+            }
+
+            if (!JanusClient.MakeRequest("SELECT SYSTEM", "EARS-FAR"))
+            {
+                Log.Error("Could not select system.");
+                return;
+            }
+
+            if (!JanusClient.MakeRequest("SELECT DECODER", "IBIS-CFG"))
+            {
+                Log.Error("Could not select decoder.");
+                return;
+            }
+
+            if (!JanusClient.MakeRequest("CONFIGURE DECODER : LOAD GRAMMAR, command2.jsgf"))
+            {
+                Log.Error("Could not load grammar.");
+                return;
+            }
+
+            if (!JanusClient.MakeRequest("INITIALIZE ASR"))
+            {
+                Log.Error("Could not initialize ASR.");
+                return;
+            }
+
+            if (!JanusClient.MakeRequest("START ASR"))
+                {
+                    Log.Error("Could not start ASR.");
+                    return;
+                }
+
+            
+            ASRTimer.Elapsed += new ElapsedEventHandler(OnASREvent);
+ //           ASRTimer.Enabled = true;
+
+
+            //displayMyLocation();
+            myMind = new DogsMind(myAvatar);    // Wei Chen 2010-04-21
+            myMind.oboxSay += delegate(string x) { objectsBox.Text = x; };
+        }
+
+        /*Wei Chen 2010-03-29*/
+        private void listenButton_Click(Object sender, EventArgs e)
+        {
+            if (listenButton.Text.Equals("Listen"))
+            {
+                ASRTimer.Enabled = true;
+                
+                //}
+                //Janus.JRTk.ReplyMessage reply = new Janus.JRTk.ReplyMessage(JanusClient.Receive());
+                //if (reply.Parameters[0] == "EVENT" && reply.Parameters[1] == "END OF SPEECH")
+                //{
+                  
+                //}
+                listenButton.Text = "stop listening";
+
+
+            }
+            else
+            {
+                        
+                ASRTimer.Enabled = false;
+                listenButton.Text = "Listen";
+            }
+
+  //          ASRTimer.Enabled = true;
+        }
+
+        void OnASREvent(object source, ElapsedEventArgs e)
+        {
+            ASRTimer.Enabled = false;
+
+                JanusClient.Send(new Janus.JRTk.Message("PROCESS", "\"\""));
+                
+                Janus.JRTk.ReplyMessage reply = new Janus.JRTk.ReplyMessage(JanusClient.Receive());
+                if (reply.Parameters[0] == "EVENT" && reply.Parameters[1] == "END OF SPEECH")
+                {
+                    JanusClient.Send(new Janus.JRTk.RequestMessage("GET ASR RESULT EXTENDED", "1", "PARSE TREE"));
+                
+                //    JanusClient.Send(new Janus.JRTk.RequestMessage("GET ASR RESULT", "1"));
+                    Janus.JRTk.Message asrResult = JanusClient.Receive();
+                    /*if (asrResult.ToString().Contains("GOODBYE"))
+                    {
+                        client.Self.Chat("Goodbye, everyone!", 0, ChatType.Normal);
+                    }
+                    else if (asrResult.ToString().Contains("HELLO"))
+                    {
+                        client.Self.Chat("Hi there, everybody!", 0, ChatType.Normal);
+                    }*/
+                    /*
+                    ParseTreeRuleNode parseRoot = new ParseTreeRuleNode(asrResult.Parameters[1]);
+                    
+                    foreach (ParseTreeNode child in parseRoot.Children)
+                    {
+                        if (child is ParseTreeRuleNode)
+                        {
+                            ParseTreeRuleNode childRule = (ParseTreeRuleNode)child;
+                            
+                            if(childRule.Name == "find")
+                            {
+                                DogsBrain.dogTricks.obeyCMD(myMind, childRule);
+                                break;
+                            }
+                            /*
+                            
+                            if (childRule.Name == "find")
+                            {
+                                if(childRule.Children.Count<2) 
+                                {
+                                    ASRTimer.Enabled = true;
+                                    return;
+                                }
+
+                                ParseTreeRuleNode objRule = (ParseTreeRuleNode)objRule.Children[1];
+                                if (objRule.Name == "obj" && objRule.Children.Count == 2)
+                                {
+                                    ;
+                                }
+                                else
+                                {
+                                    ASRTimer.Enabled = true;
+                                    return;
+                                }
+                                break;
+                            }*/
+                        /*}
+                        else
+                        {
+                            ParseTreeTokenNode childToken = (ParseTreeTokenNode)child;
+                            if (childToken.Value == "FORWARD")
+                            {
+                                myAvatar.GoForward(100);
+                                break;
+                            }
+                            else if (childToken.Value.Contains("BACK"))
+                            {
+                                myAvatar.GoBackward(100);
+                                break;
+                            }
+                            else if (childToken.Value == "STOP")
+                            {
+                                myAvatar.Stop();
+                                break;
+                            }
+                            else if (childToken.Value == "LEFT")
+                            {
+                                myAvatar.TurnLeft(90);
+                                break;
+                            }
+                            else if (childToken.Value == "RIGHT")
+                            {
+                                myAvatar.TurnRight(90);
+                                break;
+                            }
+                            
+                        }
+                  }
+   
+                    */
+                    string text = asrResult.ToString();
+
+
+                    if (text.Contains("FORWARD"))
+                    {
+                        myAvatar.GoForward(100);
+                        //break;
+                    }
+                    else if (text.Contains("BACK"))
+                    {
+                        myAvatar.GoBackward(100);
+                        //break;
+                    }
+                    else if (text.Contains("STOP"))
+                    {
+                        myAvatar.Stop();
+                        //break;
+                    }
+                    else if (text.Contains ("LEFT"))
+                    {
+                        myAvatar.TurnLeft(90);
+                        //break;
+                    }
+                    else if (text.Contains ("RIGHT"))
+                    {
+                        myAvatar.TurnRight(90);
+                        //break;
+                    }
+                    
+
+                    
+                    else if(text.Contains("RETRIEVE"))
+                    {
+                        string result = "";
+                        Regex letters = new Regex("^[A-Z]+$");
+
+                        string [] raw = text.Split(' ');
+                        foreach (string r in raw)
+                        {
+                            if (letters.IsMatch(r))
+                            {
+                                if (!result.Equals(""))
+                                {
+                                    result = string.Concat(result, " ", r);
+                                }
+                                else
+                                {
+                                    result = r;
+                                }
+                            }
+                        }
+                        result.Remove(0, 1);
+                        
+                        result = result.ToLower();
+
+                        if (result.Split(' ').Length==3)
+                        {
+                            DogsBrain.dogTricks.obeyText(myMind, result);
+                        }
+                    }
+                }
+                ASRTimer.Enabled = true;
+            
+        }
+
+
+        void StopButton_Click(Object sender, EventArgs e)
+        {
+            myAvatar.Stop();
+        }
+
+        void LookButton_Click(object sender, EventArgs e)
+        {
+            textBoxUpdate(objectsBox, "");
+            LookButton.Enabled = false;
+
+            Prims = myAvatar.ObjectsAround();
+            
+            //Console.Out.WriteLine("Got " + prims.Count + " objects back");
+
+            // Synchronous object info update
+            String message ="";
+            for (int i = 0; i < Prims.Count; i++)
+                message += i + " " + Prims[i].toString() + "\r\n";
+
+            textBoxUpdate(objectsBox, message);
+
+            LookButton.Enabled = true;
+        }
+
+        void MoveButton_Click(object sender, EventArgs e)
+        {
+            if (Xbox.Text == "" || Ybox.Text == "") return;
+            Boolean success = myAvatar.GoTo(Convert.ToInt32(Xbox.Text), Convert.ToInt32(Ybox.Text));
+        }
+
+        private void rotationbutton_Click(object Sender, EventArgs e)
+        {
+            float rot = myAvatar.Orientation();
+            textBoxUpdate(rotationBox, rot.ToString());
+        }
+
+        private void turnleftbutton_Click(object sender, EventArgs e)
+        {
+            if (turnleftbox.Text == "") /*return;*/
+                myAvatar.TurnLeft(90); /*Wei Chen 2010-02-24*/
+            else
+                myAvatar.TurnLeft(Convert.ToInt32(turnleftbox.Text));
+        }
+        private void turnrightbutton_Click(object sender, EventArgs e)
+        {
+            if (turnrightbox.Text == "") /*return;*/
+                myAvatar.TurnRight(90); /*Wei Chen 2010-02-24*/
+            else
+                myAvatar.TurnRight(Convert.ToInt32(turnrightbox.Text));
+        }
+        void turntowardbutton_Click(object sender, EventArgs e)
+        {
+            if (Xbox.Text == "" || Ybox.Text == "") return;
+
+            myAvatar.TurnTo(Convert.ToSingle(Xbox.Text), Convert.ToSingle(Ybox.Text), 25f);
+        }
+
+        private void goforwardbutton_Click(object sender, EventArgs e)
+        {
+            if (goforwardbox.Text == "") /*return;*/
+                myAvatar.GoForward(100); /*Wei Chen 2010-02-24*/
+            else
+                myAvatar.GoForward(Convert.ToInt32(goforwardbox.Text));
+        }
+
+        private void gobackwardbutton_Click(object sender, EventArgs e)
+        {
+            if (gobackwardbox.Text == "") /*return;*/
+                myAvatar.GoBackward(100);  /*Wei Chen 2010-02-25*/
+            else
+                myAvatar.GoBackward(Convert.ToInt32(gobackwardbox.Text));
+        }
+
+        private void mycoordinatesbutton_Click(object sender, EventArgs e)
+        {
+            //string myLocation = prettyLocation(client.Self.SimPosition);
+            float x, y;
+            myAvatar.Coordinates(out x, out y);
+            textBoxUpdate(locationBox, "<" + x.ToString("0.0") + "," + y.ToString("0.0") + ">");
+
+        }
+
+        private void readchatbutton_Click(object sender, EventArgs e)
+        {
+            chatboxlabel.Text = "chat";
+            textBoxUpdate(ChatBox, myAvatar.GetChat());
+        }
+
+        private void readmessagebutton_Click(object sender, EventArgs e)
+        {
+            chatboxlabel.Text = "message";
+            textBoxUpdate(ChatBox, myAvatar.GetMessage());
+        }
+
+        private void saychatbutton_Click(object sender, EventArgs e)
+        {
+            myAvatar.SayChat(InputBox.Text);
+            InputBox.Text = "";
+        }
+
+        private void saymessagebutton_Click(object sender, EventArgs e)
+        {
+            myAvatar.SayMessage(InputBox.Text);
+            InputBox.Text = "";
+        }
+
+        private void dropobjectbutton_Click(object sender, EventArgs e)
+        {
+            if (carriedPrim != null)
+            {
+                myAvatar.DropObject(carriedPrim);
+                carriedPrim = null;
+            }
+        }
+
+
+        /*private void NudgeButton_Click(object sender, EventArgs e)
+        {
+            if (goforwardbox.Text == "") return;
+            myAvatar.NudgeForward(Convert.ToInt32(goforwardbox.Text));
+
+        }
+
+        private void WalkButton_Click(object sender, EventArgs e)
+        {
+            if (goforwardbox.Text == "") return; 
+            myAvatar.WalkForward(Convert.ToInt32(goforwardbox.Text));
+
+        }
+        */
+
+        private void takeobjectbutton_Click(object sender, EventArgs e)
+        {
+            if (objectidbox.Text != null) // try to guard against empty textbox
+            {
+                int objectIndex = Convert.ToInt32(objectidbox.Text);
+                if (Prims.Count >= objectIndex) // try to guard against bad index
+                {
+                    if (myAvatar.PickupObject(Prims[objectIndex]))
+                        carriedPrim = Prims[objectIndex];
+                    else
+                        carriedPrim = null;
+                }
+            }
+        }
+
+        private void AutoButton_Click(object sender, EventArgs e)
+        {
+
+            // Add code here
+
+            myAvatar.lookupCarriedItem();
+
+        }
+
+
+    }
+}

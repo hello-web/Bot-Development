@@ -1,0 +1,467 @@
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Reflection;
+using System.Collections.ObjectModel;
+
+using Kaldi;
+
+
+namespace DogsBrain
+{
+    // CD is a conceptual description of an object or action
+    public class CD
+    {
+        public concept head;
+        public Hashtable PropList;
+
+        public CD()
+        {
+            PropList = new Hashtable();
+        }
+
+        public CD(ParseTreeRuleNode pn)     
+        {   // Wei Chen --- only implemented for "find command" 2010-04-29
+            if (pn == null) throw (new Exception("CD null argument"));
+            
+            if (pn.Name == "find" )
+            {
+                head = (concept)concept.all_concepts["find_object"];
+                PropList = new Hashtable();
+
+                PropList.Add("object:", new CD((ParseTreeRuleNode)pn.Children[1]));
+            }
+
+            if (pn.Name == "obj")
+            {
+                if (pn.Children.Count < 2)
+                {  // has to be <adj> <noun>
+                    return;
+                }
+                
+                ParseTreeRuleNode noun = (ParseTreeRuleNode)pn.Children[1];
+                ParseTreeTokenNode noun_value = (ParseTreeTokenNode)noun.Children[0];
+                
+                head = (concept)concept.all_concepts[noun_value.Value.ToLower()];
+                PropList = new Hashtable();
+
+                ParseTreeRuleNode adj = (ParseTreeRuleNode)pn.Children[0];
+                ParseTreeTokenNode adj_value = (ParseTreeTokenNode)adj.Children[0];
+
+                PropList.Add(concept.all_modifiers[adj_value.Value.ToLower()], adj_value.Value.ToLower());
+            }
+            
+        }
+
+        public CD(string str)
+        {   // Wei Chen -- old code from str
+            string[] words = str.Split(' ');
+ 
+            if(words.Length != 3){
+                head = (concept)concept.all_concepts["find"];
+                PropList = new Hashtable();
+                return;
+            }
+
+            head = (concept)concept.all_concepts["find_object"];
+            if (head == null) throw (new System.Exception("New CD: attempt to create from unkown concept: " + str));
+            PropList = new Hashtable();
+
+            CD obj = new CD();
+            obj.head = (concept)concept.all_concepts[concept.all_nouns[words[2]]];
+            obj.PropList.Add(concept.all_modifiers[words[1]], words[1]);
+            PropList.Add("object:", obj);
+            
+        }
+        /*
+        public CD(SimpleGrammar.ParseNode pn)
+        {
+            if (pn == null) throw (new Exception("CD null argument"));
+            PropList = new Hashtable();
+            if (pn.value == "S")
+            {
+                if (pn.children == null) throw (new Exception("CD: S node has no children"));
+                pn = (ParseNode)pn.children[0];
+            }
+            if (pn.children == null || pn.children.Count == 0) throw (new Exception("CD: CMD node has no children"));
+            switch (pn.value)
+            {
+                case "CMD1":
+                    CMD1_CD(this, pn);
+                    break;
+                case "C+OBJ":
+                    C_OBJ_CD(this, pn);
+                    break;
+                case "GOX":
+                    goxCD(this, pn);
+                    break;
+                case "TURNX":
+                    turnxCD(this, pn);
+                    break;
+                default:
+                    throw (new Exception("CD: Unknown child of S"));
+            }
+        }
+        */
+        /*
+        private void CMD1_CD(CD cd, ParseNode pn)
+        {
+            SimpleGrammar.ParseNode child = (SimpleGrammar.ParseNode)pn.children[0];
+            string command = (string)concept.all_commands[child.value];
+            if (command == null) throw (new Exception("CMD1_CD: unrecognized command: " + child.value));
+            cd.head = (concept)concept.all_concepts[command];
+            if (cd.head == null) throw (new Exception("CMD1_CD: unrecognized concept: " + command));
+        }
+
+
+        private void C_OBJ_CD(CD cd, ParseNode pn)
+        {
+            foreach (ParseNode child in pn.children)
+            {
+                if (child.value == "CMD2")
+                {
+                    if (child.children == null || child.children.Count == 0) throw (new Exception("C_OBJ_CD: CMD2 has no children"));
+                    ParseNode cmd = (ParseNode)child.children[0];
+                    string command = (string)concept.all_commands[cmd.value];
+                    if (command == null) throw (new Exception("CMD2_CD: unrecognized command: " + cmd.value));
+                    cd.head = (concept)concept.all_concepts[command];
+                    if (cd.head == null) throw (new Exception("CMD1_CD: unrecognized concept: " + command));
+                }
+                else
+                {
+                    if (child.value == "object:")
+                    {
+                        cd.PropList = new Hashtable();
+                        cd.PropList.Add("object:", objectCD(child));
+                    }
+                }
+            }
+
+        }
+
+        private CD objectCD(ParseNode pn)
+        {
+            if (pn.children == null || pn.children.Count == 0) throw (new Exception("objectCD: object has no children"));
+            ParseNode child = (ParseNode)pn.children[0];
+            if (child.value == "me") return new CD("me");
+            if (child.value != "NG") throw (new Exception("objectCD: object missing"));
+            return ngCD(child);
+        }
+
+        private CD ngCD(ParseNode pn)
+        {
+            if (pn.children == null || pn.children.Count == 0) throw (new Exception("ngCD: ng has no children"));
+            string noun = "";
+            foreach (ParseNode child in pn.children)
+            {
+                if (child.value == "NOUN")
+                {
+                    if (child.children == null || child.children.Count == 0) throw (new Exception("ngCD: NOUN has no children"));
+                    ParseNode nn = (ParseNode)child.children[0];
+                    noun = nn.value;
+                    break;
+                }
+            }
+            string noun1 = (string)concept.all_nouns[noun];   // such as "ball"
+            if (noun1 == null) throw (new Exception("ngCD: unknown noun: " + noun));
+            CD result = new CD(noun1);
+            foreach (ParseNode child in pn.children)
+            {
+                if (child.children == null || child.children.Count == 0) throw (new Exception("ngCD: no children of " + child.value));
+                ParseNode pnspec = (ParseNode)child.children[0];
+                string pnspecName = pnspec.value;
+                string mod;
+                switch ((string)child.value)
+                {
+                    case "ART":
+                        result.PropList.Add("det:", pnspecName);
+                        break;
+                    case "ADJ":
+                        mod = (string)concept.all_modifiers[pnspecName];
+                        if (result.PropList[mod] == null) result.PropList.Add(mod, pnspecName);
+                        break;
+                    case "PN":
+                        if (pnspec.children == null || pnspec.children.Count == 0) throw (new Exception("ngCD: no children of " + pnspecName));
+                        ParseNode locSpec = (ParseNode)pnspec.children[0];
+                        string locSpecName = locSpec.value;
+                        mod = (string)concept.all_directions[locSpecName];
+                        if (pnspecName == "LOC_SPEC1")
+                        {
+                            if (result.PropList[mod] == null) result.PropList.Add(mod, new CD("you"));
+                            break;
+                        }
+                        if (pnspecName == "LOC+REF")
+                        {
+                            ParseNode locSpec2 = (ParseNode)locSpec.children[0];
+                            string locSpec2Name = locSpec2.value;
+                            mod = (string)concept.all_directions[locSpec2Name];
+                            if (result.PropList[mod] == null) result.PropList.Add(mod, locrefCD((ParseNode)pnspec.children[1]));
+                            break;
+                        }
+                        throw (new Exception("ngCD: strange PN: " + pnspecName));
+                    default:
+                        break;
+                }
+            }
+            return result;
+        }
+
+        private object locrefCD(ParseNode pn)
+        {
+            if (pn.children == null || pn.children.Count == 0) throw (new Exception("locrefCD: locref has no children"));
+            ParseNode child = (ParseNode)pn.children[0];
+            if (child.value == "you") return new CD("you");
+            if (child.value != "NPH") throw (new Exception("locrefCD: ref missing"));
+            return ngCD(child);
+        }
+
+
+        private void goxCD(CD cd, ParseNode pn)
+        {
+            cd.head = (concept)concept.all_concepts["go"];
+            cd.PropList = new Hashtable();
+            if (pn.children == null || pn.children.Count == 0) throw (new Exception("goxCD: gox has no children"));
+            foreach (ParseNode child in pn.children)
+            {
+                if (child.value == "go_direction")
+                {
+                    ParseNode godir = (ParseNode)child.children[0];
+                    cd.PropList.Add("go_direction", godir.value);
+                }
+                else
+                {
+                    if (child.value == "num:")
+                    {
+                        ParseNode num = (ParseNode)child.children[0];
+                        cd.PropList.Add("num:", concept.all_nums[num.value]);
+                    }
+                }
+            }
+        }
+
+        private void turnxCD(CD cd, ParseNode pn)
+        {
+            cd.head = (concept)concept.all_concepts["turn"];
+            cd.PropList = new Hashtable();
+            if (pn.children == null || pn.children.Count == 0) throw (new Exception("turnCD: turnx has no children"));
+            foreach (ParseNode child in pn.children)
+            {
+                if (child.value == "turn_direction")
+                {
+                    ParseNode turndir = (ParseNode)child.children[0];
+                    cd.PropList.Add("turn_direction", turndir.value);
+                }
+                else
+                {
+                    if (child.value == "num:")
+                    {
+                        ParseNode num = (ParseNode)child.children[0];
+                        cd.PropList.Add("num:", concept.all_nums[num.value]);
+                    }
+                }
+            }
+        }
+        */
+
+
+        public string ToSexp()
+        {
+            string res = "(" + head.concept_name;
+            string pname;
+            object pval;
+            string pval_string;
+            if (PropList != null)
+            {
+                res = res + " (";
+                foreach (DictionaryEntry d in PropList)
+                {
+                    pname = (string)d.Key;
+                    pval = d.Value;
+                    if (d.Value is CD)
+                    {
+                        CD x = (CD)d.Value;
+                        pval_string = x.ToSexp();
+                    }
+                    else
+                    {
+                        pval_string = d.Value.ToString();
+                    }
+                    res = res + " (" + pname + " " + pval_string + ")";
+                }
+                res = res + ")";
+            }
+            return res + ")";
+        }
+
+    }
+
+    public class concept
+    {
+        public static Hashtable all_concepts, all_modifiers, all_directions, all_commands, all_nums, all_nouns;
+        public string concept_name;
+        public concept is_a;
+        public Hashtable properties; // in case we want to further specify a concept
+
+        public concept(string name)
+        {
+            concept_name = name;
+            concept.all_concepts.Add(name, this);
+        }
+
+
+        public concept(string name, string parent)
+        {
+            concept_name = name;
+            properties = new Hashtable();
+            if (parent != "")
+            {
+                object parent_concept = concept.all_concepts[parent];
+                if (parent_concept != null) is_a = (concept)parent_concept;
+            }
+            concept.all_concepts.Add(name, this);
+        }
+
+        public bool test_isa(concept parent)
+        {
+            if (this == parent) return true;
+            if (this.is_a == null) return false;
+            if (this.is_a == parent) return true;
+            return this.is_a.test_isa(parent);
+        }
+
+        public static void initConcepts()
+        {
+            concept.all_concepts = new Hashtable();
+            concept x;
+            x = new concept("Anything");
+            x = new concept("PhysObj", "Anything");
+            x = new concept("Action", "Anything");
+            x = new concept("AnimateObj", "PhysObj");
+            x = new concept("InanimateObj", "PhysObj");
+            x = new concept("avatar", "AnimateObj");
+            x = new concept("master", "avatar");
+            x = new concept("you", "avatar");
+            x = new concept("me", "master");
+            x = new concept("turn", "Action");
+            x = new concept("turn_to_object", "Action");
+            x = new concept("turn_around", "Action");
+            x = new concept("go", "Action");
+            x = new concept("go_back", "Action");
+            x = new concept("go_to_object", "Action");
+            x = new concept("go_to_center", "Action");
+            x = new concept("find_object", "Action");
+            x = new concept("bring", "Action");
+            x = new concept("pick_up_object", "Action");
+            x = new concept("pick_it_up", "Action");
+            x = new concept("drop", "Action");
+            x = new concept("drop_it", "Action");
+            x = new concept("report", "Action");
+            x = new concept("it", "PhysObj");
+            x = new concept("cube", "PhysObj");
+            x.properties.Add("average_height", 1.0F);
+            x = new concept("house", "PhysObj");
+            x.properties.Add("average_height", 8.0F);
+            x = new concept("tree", "PhysObj");
+            x.properties.Add("average_height", 6.0F);
+            x = new concept("ball", "PhysObj");
+            x.properties.Add("average_height", .6F);
+            x = new concept("wall", "PhysObj");
+            x.properties.Add("average_height", 3.0F);
+            //Syntactic Categories
+            x = new concept("S_Cat");
+            x = new concept("V", "S_Cat");
+            x = new concept("NP", "S_Cat");
+            x = new concept("PP", "S_Cat");
+            x = new concept("NPxDet", "NP");
+            x = new concept("N", "NPxDet");
+            x = new concept("PersPron", "NP");
+
+            concept.all_commands = new Hashtable();
+            concept.all_commands.Add("turn", "turn");
+            concept.all_commands.Add("turn to", "turn_to_object");
+            concept.all_commands.Add("turn around", "turn_around");
+            concept.all_commands.Add("go", "go");
+            concept.all_commands.Add("go to", "go_to_object");
+            concept.all_commands.Add("go back", "go_back");
+            concept.all_commands.Add("go to center", "go_to_center");
+            concept.all_commands.Add("find", "find_object");
+            concept.all_commands.Add("bring", "bring");
+            concept.all_commands.Add("pick up", "pick_up_object");
+            concept.all_commands.Add("pick it up", "pick_it_up");
+            concept.all_commands.Add("drop", "drop");
+            concept.all_commands.Add("drop it", "drop_it");
+            concept.all_commands.Add("report", "report");
+
+            concept.all_modifiers = new Hashtable();
+            concept.all_modifiers.Add("small", "size");
+            concept.all_modifiers.Add("big", "size");
+            concept.all_modifiers.Add("tall", "size");
+            concept.all_modifiers.Add("red", "color");
+            concept.all_modifiers.Add("green", "color");
+            concept.all_modifiers.Add("yellow", "color");
+            concept.all_modifiers.Add("blue", "color");
+            concept.all_modifiers.Add("purple", "color");
+
+            concept.all_directions = new Hashtable();
+            concept.all_directions.Add("to the left", "left");
+            concept.all_directions.Add("on the left", "left");
+            concept.all_directions.Add("on your left", "left");
+            concept.all_directions.Add("to the left of", "left");
+
+            concept.all_directions.Add("to the right", "right");
+            concept.all_directions.Add("on the right", "right");
+            concept.all_directions.Add("on your right", "right");
+            concept.all_directions.Add("to the right of", "right");
+
+            concept.all_directions.Add("to the east", "east");
+            concept.all_directions.Add("to the east of", "east");
+            concept.all_directions.Add("east of", "east");
+
+            concept.all_directions.Add("to the west", "west");
+            concept.all_directions.Add("to the west of", "west");
+            concept.all_directions.Add("west of", "west");
+
+            concept.all_directions.Add("to the north", "north");
+            concept.all_directions.Add("to the north of", "north");
+            concept.all_directions.Add("north of", "north");
+
+            concept.all_directions.Add("to the south", "south");
+            concept.all_directions.Add("to the south of", "south");
+            concept.all_directions.Add("south of", "south");
+
+            concept.all_directions.Add("near", "near");
+            concept.all_directions.Add("nearby", "near");
+            concept.all_directions.Add("behind", "behind");
+            concept.all_directions.Add("in front of", "front");
+
+            concept.all_nums = new Hashtable();
+            concept.all_nums.Add("one", 1);
+            concept.all_nums.Add("two", 2);
+            concept.all_nums.Add("three", 3);
+            concept.all_nums.Add("four", 4);
+            concept.all_nums.Add("five", 5);
+            concept.all_nums.Add("six", 6);
+            concept.all_nums.Add("seven", 7);
+            concept.all_nums.Add("eight", 8);
+            concept.all_nums.Add("nine", 9);
+            concept.all_nums.Add("ten", 10);
+            concept.all_nums.Add("twenty", 20);
+            concept.all_nums.Add("thirty", 30);
+            concept.all_nums.Add("forty five", 45);
+            concept.all_nums.Add("sixty", 60);
+            concept.all_nums.Add("ninety", 90);
+
+            concept.all_nouns = new Hashtable();
+            concept.all_nouns.Add("ball", "ball");
+            concept.all_nouns.Add("tree", "tree");
+            concept.all_nouns.Add("house", "house");
+            concept.all_nouns.Add("cube", "cube");
+            concept.all_nouns.Add("box", "cube");
+            concept.all_nouns.Add("wall", "wall");
+            concept.all_nouns.Add("master", "master");
+
+        }
+    }
+}

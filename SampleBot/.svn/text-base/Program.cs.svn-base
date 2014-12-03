@@ -1,0 +1,234 @@
+using Janus;
+using Janus.JRTk;
+using OpenMetaverse;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using System.Timers;
+using log4net;
+using log4net.Config;
+
+namespace SampleBot
+{
+    class Program
+    {
+        private static readonly ILog Log = LogManager.GetLogger(typeof(Program));
+
+        private static readonly GridClient OpenMetaverseClient = new GridClient();
+
+        private static readonly FliteClient FliteClient = new FliteClient("/usr/local/bin/flite");
+        private static readonly List<string> FliteVoiceNames = new List<string>(new string[] { "awb", "rms", "slt", "kal16" });
+        private static int LastVoiceIndex = 0;
+        private static readonly Dictionary<UUID, string> FliteVoicesByID = new Dictionary<UUID, string>();
+
+        private static readonly string UserAgent = "RichInteractionBot";
+        private static readonly string UserVersion = "1.0";
+
+        private static readonly string FirstName = "Dog";
+        private static readonly string LastName = "Six";
+        private static readonly string Password = "alive";
+        private static readonly string StartLocation = NetworkManager.StartLocation("One", 127, 127, 25);
+
+        private static readonly Client JanusClient = new Client("localhost", 9999);
+        private static readonly Timer ASRTimer = new Timer(1000);
+		
+		private static readonly IList<Primitive> objects = new List<Primitive>();
+		
+		private static bool listening = false;
+								
+        public static void Main(string[] args)
+        {
+            XmlConfigurator.Configure(new System.IO.FileInfo("SampleBot.exe.config"));
+
+            OpenMetaverseClient.Settings.LOGIN_SERVER = "http://128.2.208.30:9000";
+
+            OpenMetaverseClient.Network.OnConnected += new NetworkManager.ConnectedCallback(Network_OnConnected);
+            OpenMetaverseClient.Self.OnChat += new AgentManager.ChatCallback(Self_OnChat);
+			
+			OpenMetaverseClient.Objects.OnNewPrim += new ObjectManager.NewPrimCallback(Objects_OnNewPrim);
+									
+            if (OpenMetaverseClient.Network.Login(FirstName, LastName, Password, UserAgent, StartLocation, UserVersion)) {
+                Log.Info("Connected successfully.");
+            } else {
+                Log.Fatal("Unable to connect to grid: " + OpenMetaverseClient.Network.LoginMessage);
+                Environment.Exit(1);
+            }
+        }
+		
+		private static void WriteToChat(string text) {
+			OpenMetaverseClient.Self.Chat(text, 0, ChatType.Normal);
+			Speak(text, "rms");
+		}
+		
+		private static void Speak(string text, string voice) {
+			ASRTimer.Stop();
+			
+			JanusClient.MakeRequest("STOP ASR");
+			FliteClient.Speak(text, voice);
+			JanusClient.MakeRequest("START ASR");
+			
+			for (int i = 0; i < 2; i++) {
+				System.Threading.Thread.Sleep(1000);
+				JanusClient.Send(new Message("PROCESS", "\"\""));
+				JanusClient.Receive();
+			}
+			
+			ASRTimer.Start();
+		}
+
+        static void Network_OnConnected(object sender)
+        {
+            if (!JanusClient.MakeRequest("SELECT AUDIO INPUT MODE", "DEVICE"))
+            {
+                Log.Error("Could not select audio input mode.");
+                return;
+            }
+
+            if (!JanusClient.MakeRequest("SELECT SYSTEM", "EARS-FAR"))
+            {
+                Log.Error("Could not select system.");
+                return;
+            }
+			
+            if (!JanusClient.MakeRequest("SELECT DECODER", "IBIS-CFG"))
+            {
+                Log.Error("Could not select decoder.");
+                return;
+            }
+
+            if (!JanusClient.MakeRequest("CONFIGURE DECODER : LOAD GRAMMAR, ivw.jsgf"))
+            {
+                Log.Error("Could not load grammar.");
+                return;
+            }
+			
+            if (!JanusClient.MakeRequest("INITIALIZE ASR"))
+            {
+                Log.Error("Could not initialize ASR.");
+                return;
+            }
+			
+			if (!JanusClient.MakeRequest("START ASR"))
+            {
+                Log.Error("Could not start ASR.");
+                return;
+            }
+									
+			WriteToChat("Hello! Let me know when you'd like me to \"start listening\".");
+			
+            ASRTimer.Elapsed += new ElapsedEventHandler(OnASREvent);
+            ASRTimer.Enabled = true;
+        }
+
+        static void Self_OnChat(string message, ChatAudibleLevel audible, ChatType type, ChatSourceType sourceType, string fromName, UUID id, UUID ownerid, Vector3 position)
+        {
+            if (id == OpenMetaverseClient.Self.AgentID)
+            {
+                return;
+            }
+
+            if (!FliteVoicesByID.ContainsKey(id))
+            {
+                FliteVoicesByID[id] = ChooseNextVoiceName();
+            }
+            Speak(message, FliteVoicesByID[id]);
+        }
+				
+		private static string ChooseNextVoiceName() {
+			return FliteVoiceNames[++LastVoiceIndex % FliteVoiceNames.Count];
+		}
+		
+		static void Objects_OnNewPrim(Simulator simulator, Primitive primd, ulong regionHandle, ushort timeDilation)
+        {
+			lock (objects) {
+				objects.Add(primd);
+			}
+        }
+ 				
+        static private void OnASREvent(object source, ElapsedEventArgs e)
+        {
+            ASRTimer.Stop();
+
+            JanusClient.Send(new Message("PROCESS", "\"\""));			
+			ReplyMessage reply = new ReplyMessage(JanusClient.Receive());
+			
+            if (reply.Parameters[0] == "EVENT" && reply.Parameters[1] == "END OF SPEECH")
+            {
+                JanusClient.Send(new RequestMessage("GET ASR RESULT EXTENDED", "1", "PARSE TREE"));
+                Message asrResult = JanusClient.Receive();
+				string serializedParseTree = asrResult.Parameters[1];
+                ParseTreeRuleNode parseMainRule = (serializedParseTree.Trim() == "" ? null : new ParseTreeRuleNode(serializedParseTree));
+				
+				if (parseMainRule != null) {
+					ParseTreeRuleNode parseRoot = (ParseTreeRuleNode) parseMainRule.Children[0];
+					
+					if (!listening && parseRoot.Name == "startListening") {
+						listening = true;
+						WriteToChat("Okay. I'm listening!");
+					} else if (listening && parseRoot.Name == "stopListening") {
+						listening = false;
+						WriteToChat("I'm not listening anymore. Let me know when I should \"start listening\".");
+					} else if (listening) {
+						if (parseRoot.Name == "disconnect") {
+							WriteToChat("Goodbye! It was a pleasure talking with you.");
+							OpenMetaverseClient.Network.Logout();
+						} else if (parseRoot.Name == "listObjects") {
+							WriteToChat("I know about boxes, grass, trees, cylinders, and spheres.");
+						} else if (parseRoot.Name == "locateObject") {
+							ParseTreeRuleNode objectTypeNode = parseRoot.FindChildRule("objectType");
+							string targetType = objectTypeNode.Children[0].ToString().ToLower();							
+							Vector3 botPosition = OpenMetaverseClient.Self.SimPosition;
+							
+							Primitive smallestObject = null;
+							double smallestDistance = Double.MaxValue;
+							lock (objects) {
+								foreach (Primitive worldObject in objects) {
+									string type;
+									switch (worldObject.PrimData.PCode) {
+									case PCode.Prim:
+										type = worldObject.Type.ToString();
+										break;
+									default:
+										type = worldObject.PrimData.PCode.ToString();
+										break;
+									}
+									type = type.ToLower();
+									if (type == targetType) {
+										Vector3 objectPosition = worldObject.Position;
+										double distance = Math.Sqrt(Math.Pow(botPosition.X - objectPosition.X, 2.0) +
+										                            Math.Pow(botPosition.Y - objectPosition.Y, 2.0) +
+										                            Math.Pow(botPosition.Z - objectPosition.Z, 2.0));
+										if (distance < smallestDistance) {
+											smallestDistance = distance;
+											smallestObject = worldObject;
+										}
+									}
+								}
+							}
+							
+							string chatText;
+							if (smallestObject == null) {
+								chatText = String.Format("I can't find a {0} around here.", targetType);
+							} else {
+								StringBuilder chatBuilder = new StringBuilder("The nearest ");
+								chatBuilder.Append(targetType);
+								chatBuilder.Append(" is ").Append(String.Format("{0:0.##}", smallestDistance)).Append(" meters away.");
+								chatText = chatBuilder.ToString();
+							}
+							
+							WriteToChat(chatText);
+						} else {
+							WriteToChat("Sorry, but I don't understand what you are saying.");
+						}
+					}
+				}
+            } else if (reply.Parameters[0] == "BROKEN END OF SPEECH") {
+				WriteToChat("Sorry, I didn't hear the end of what you said.");
+			}
+                
+            ASRTimer.Start();
+        }
+    }
+}

@@ -1,0 +1,5 @@
+/Users/cruan/Downloads/18781/project/Bot Development/Kaldi/bin/Debug/Kaldi.dll.mdb
+/Users/cruan/Downloads/18781/project/Bot Development/Kaldi/bin/Debug/Kaldi.dll
+/Users/cruan/Downloads/18781/project/Bot Development/Kaldi/obj/Debug/Kaldi.dll
+/Users/cruan/Downloads/18781/project/Bot Development/Kaldi/obj/Debug/Kaldi.dll.mdb
+/Users/cruan/Downloads/18781/project/Bot Development/Kaldi/bin/Debug/log4net.dll

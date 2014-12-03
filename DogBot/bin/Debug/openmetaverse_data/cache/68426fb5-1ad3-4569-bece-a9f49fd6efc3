@@ -1,0 +1,34 @@
+LLWearable version 22
+New Shirt
+
+	permissions 0
+	{
+		base_mask	00082000
+		owner_mask	00082000
+		group_mask	00000000
+		everyone_mask	00000000
+		next_owner_mask	00082000
+		creator_id	d89018b3-b75b-4c93-8828-2d63bf2ba2a2
+		owner_id	4f98e445-bf04-4000-ae91-de991f2a362b
+		last_owner_id	d89018b3-b75b-4c93-8828-2d63bf2ba2a2
+		group_id	00000000-0000-0000-0000-000000000000
+	}
+	sale_info	0
+	{
+		sale_type	not
+		sale_price	10
+	}
+type 4
+parameters 10
+781 1
+800 1
+801 1
+802 1
+803 0
+804 0
+805 1
+828 .12
+840 .18
+868 .3
+textures 1
+1 f6bec8f5-fb6c-48e9-a615-81d845e3c7c7

@@ -1,0 +1,82 @@
+where i
+where tree
+how far tree
+how tall tree
+where cat
+how tall cat
+how far cat
+where dog
+how tall dog
+how far dog
+go to tree
+go to dog
+go to cat
+go to water
+take dog
+lift dog
+hold dog
+grab dog
+free dog
+let go dog
+drop dog
+put dog
+take cat
+lift cat
+hold cat
+grab cat
+free cat
+let go cat
+drop cat
+put cat
+put dog to tree
+take dog to tree
+drop dog at tree
+move dog to tree
+place dog near tree
+put dog near water
+take dog to water
+drop dog near water
+move dog to water
+place dog near water
+put dog near cat
+take dog to cat
+drop dog near cat
+move dog to cat
+place dog near cat
+put cat to tree
+take cat to tree
+drop cat at tree
+move cat to tree
+place cat near tree
+put cat near water
+take cat to water
+drop cat near water
+move cat to water
+place cat near water
+put cat near dog
+take cat to dog
+drop cat near dog
+move cat to dog
+place cat near dog
+give me dog
+bring me dog
+move dog here
+give me cat
+bring me cat
+move cat here
+leave me
+go home
+sit
+stand
+name
+who
+how old
+super
+superman
+i i fly
+jump
+me backflip
+dance
+stop following me
+follow me
+come here
