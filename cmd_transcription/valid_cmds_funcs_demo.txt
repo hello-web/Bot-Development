@@ -43,7 +43,7 @@ moveObjectToLocation cat dog
 moveObjectToLocation cat dog
 moveObjectToLocation cat dog
 moveObjectToLocation cat dog
-go home
+goHome
 sitDown
 standUp
 sayName

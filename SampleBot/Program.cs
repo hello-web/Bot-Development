@@ -48,7 +48,6 @@ namespace SampleBot
 
 		public static void Main (string[] args) {
 			LoadCmdDicts ("/Users/cruan/Downloads/18781/project/cmd_transcription");
-			sayName (null);
 			XmlConfigurator.Configure (new System.IO.FileInfo ("SampleBot.exe.config"));
 
 			OpenMetaverseClient.Settings.LOGIN_SERVER = "http://192.168.56.101:9000";
@@ -145,6 +144,8 @@ namespace SampleBot
 			ASRTimer.Enabled = true;
 
 			getObjects (); // why does execution not get here?
+
+			OpenMetaverseClient.Self.SetHome ();
 		}
 		//static void Self_OnChat(string message, ChatAudibleLevel audible, ChatType type, ChatSourceType sourceType, string fromName, UUID id, UUID ownerid, Vector3 position)
 		static void Self_OnChat (object sender, ChatEventArgs e)
@@ -321,6 +322,14 @@ namespace SampleBot
 			OpenMetaverseClient.Self.AnimationStop (Animations.BACKFLIP, false);
 		}
 
+		static public void goHome(string[] paras) {
+			double x = OpenMetaverseClient.Self.HomePosition.X;
+			double y = OpenMetaverseClient.Self.HomePosition.Y;
+			double z = OpenMetaverseClient.Self.HomePosition.Z;
+			WriteToChat ("Ok");
+			OpenMetaverseClient.Self.AutoPilot (x, y, z);
+		}
+
 		private static int danceId = 0;
 		static public void dance(string[] paras) {
 			danceId = danceId % 8 + 1;
@@ -379,7 +388,61 @@ namespace SampleBot
 		}
 
 		static public void moveObjectToLocation(string[] paras) {
+			string srcObjName = paras [0];
+			string dstObjName = paras [1];
+			getObjects ();
+			Primitive srcObj = getNearestObject (srcObjName);
+			Primitive dstObj = getNearestObject (dstObjName);
+
+			if (srcObj == null || dstObj == null) {
+				WriteToChat ("sorry, I can't find both of them");
+			} else {
+				double x = srcObj.Position.X;
+				double y = srcObj.Position.Y;
+				double z = srcObj.Position.Z;
+				OpenMetaverseClient.Self.AutoPilot (x, y, z);
+				OpenMetaverseClient.Self.Grab (srcObj.LocalID);
+				x = dstObj.Position.X;
+				y = dstObj.Position.Y;
+				z = dstObj.Position.Z;
+				OpenMetaverseClient.Self.AutoPilot (x, y, z);
+				OpenMetaverseClient.Self.DeGrab (srcObj.LocalID);
+			}
 			return;
+		}
+
+		static public void goToLocation(string[] paras) {
+			string dstObjName = paras [0];
+			getObjects ();
+			Primitive dstObj = getNearestObject (dstObjName);
+
+			if (dstObj == null) {
+				WriteToChat ("sorry, I can't find your destination");
+			} else {
+				double x = dstObj.Position.X;
+				double y = dstObj.Position.Y;
+				double z = dstObj.Position.Z;
+				WriteToChat ("here we go");
+				OpenMetaverseClient.Self.AutoPilot (x, y, z);
+			}
+		}
+
+		// say the location of nearest object
+		static public void answerLocation(string[] paras) {
+			string objectName = paras [0];
+			getObjects ();
+			Primitive targetobj = getNearestObject (objectName);
+			string chatText;
+			if (targetobj == null) {
+				chatText = String.Format ("I can't find {0} around here.", objectName);
+			} else {
+				double distance = getDistance (OpenMetaverseClient.Self.SimPosition, targetobj.Position);
+				StringBuilder chatBuilder = new StringBuilder ("The nearest ");
+				chatBuilder.Append (objectName);
+				chatBuilder.Append (" from me is ").Append (String.Format ("{0:0.##}", distance)).Append (" meters away.");
+				chatText = chatBuilder.ToString ();
+			}
+			WriteToChat (chatText);
 		}
 
 		static private double getDistance(Vector3 v1, Vector3 v2) {
@@ -388,6 +451,7 @@ namespace SampleBot
 				Math.Pow (v1.Z - v2.Z, 2.0));
 			return distance;
 		}
+
 		// answer the distance of nearest object
 		static private Primitive getNearestObject(string objectName) {
 			Vector3 botPosition = OpenMetaverseClient.Self.SimPosition;
@@ -442,25 +506,6 @@ namespace SampleBot
 			}
 			return nearestObject;
 		}
-
-		// say the location of nearest object
-		static public void answerLocation(string[] paras) {
-			string objectName = paras [0];
-			getObjects ();
-			Primitive targetobj = getNearestObject (objectName);
-			string chatText;
-			if (targetobj == null) {
-				chatText = String.Format ("I can't find {0} around here.", objectName);
-			} else {
-				double distance = getDistance (OpenMetaverseClient.Self.SimPosition, targetobj.Position);
-				StringBuilder chatBuilder = new StringBuilder ("The nearest ");
-				chatBuilder.Append (objectName);
-				chatBuilder.Append (" from me is ").Append (String.Format ("{0:0.##}", distance)).Append (" meters away.");
-				chatText = chatBuilder.ToString ();
-			}
-			WriteToChat (chatText);
-		}
-
 
 	}
 }
