@@ -323,11 +323,9 @@ namespace SampleBot
 		}
 
 		static public void goHome(string[] paras) {
-			double x = OpenMetaverseClient.Self.HomePosition.X;
-			double y = OpenMetaverseClient.Self.HomePosition.Y;
-			double z = OpenMetaverseClient.Self.HomePosition.Z;
+
 			WriteToChat ("Ok");
-			OpenMetaverseClient.Self.AutoPilot (x, y, z);
+			OpenMetaverseClient.Self.AutoPilotLocal (128, 128, 22);
 		}
 
 		private static int danceId = 0;
@@ -397,15 +395,15 @@ namespace SampleBot
 			if (srcObj == null || dstObj == null) {
 				WriteToChat ("sorry, I can't find both of them");
 			} else {
-				double x = srcObj.Position.X;
-				double y = srcObj.Position.Y;
-				double z = srcObj.Position.Z;
-				OpenMetaverseClient.Self.AutoPilot (x, y, z);
+				int x = (int)srcObj.Position.X;
+				int y = (int)srcObj.Position.Y;
+				float z = srcObj.Position.Z;
+				OpenMetaverseClient.Self.AutoPilotLocal (x, y, z);
 				OpenMetaverseClient.Self.Grab (srcObj.LocalID);
-				x = dstObj.Position.X;
-				y = dstObj.Position.Y;
+				x = (int)dstObj.Position.X;
+				y = (int)dstObj.Position.Y;
 				z = dstObj.Position.Z;
-				OpenMetaverseClient.Self.AutoPilot (x, y, z);
+				OpenMetaverseClient.Self.AutoPilotLocal (x, y, z);
 				OpenMetaverseClient.Self.DeGrab (srcObj.LocalID);
 			}
 			return;
@@ -419,11 +417,11 @@ namespace SampleBot
 			if (dstObj == null) {
 				WriteToChat ("sorry, I can't find your destination");
 			} else {
-				double x = dstObj.Position.X;
-				double y = dstObj.Position.Y;
-				double z = dstObj.Position.Z;
+				int x = (int)dstObj.Position.X;
+				int y = (int)dstObj.Position.Y;
+				float z = dstObj.Position.Z;
 				WriteToChat ("here we go");
-				OpenMetaverseClient.Self.AutoPilot (x, y, z);
+				OpenMetaverseClient.Self.AutoPilotLocal (x, y, z);
 			}
 		}
 

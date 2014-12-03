@@ -2,12 +2,12 @@
   <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
   <MonoDevelop.Ide.Workbench ActiveDocument="SampleBot/Program.cs">
     <Files>
-      <File FileName="SampleBot/Program.cs" Line="33" Column="33" />
+      <File FileName="SampleBot/Program.cs" Line="4" Column="4" />
     </Files>
   </MonoDevelop.Ide.Workbench>
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore>
-      <Breakpoint file="/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/Program.cs" line="51" column="1" />
+      <Breakpoint file="/Users/cruan/Downloads/18781/project/Bot Development/SampleBot/Program.cs" line="50" column="1" />
     </BreakpointStore>
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MonoDevelop.Ide.DebuggingService.PinnedWatches />
