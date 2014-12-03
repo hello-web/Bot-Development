@@ -47,8 +47,8 @@ namespace SampleBot
 		private static Hashtable keyWordToCmdMap = new Hashtable ();
 
 		public static void Main (string[] args) {
-			LoadCmdDicts ("/home/mario/Downloads/cmd_transcription");
-
+			LoadCmdDicts ("/Users/cruan/Downloads/18781/project/cmd_transcription");
+			sayName (null);
 			XmlConfigurator.Configure (new System.IO.FileInfo ("SampleBot.exe.config"));
 
 			OpenMetaverseClient.Settings.LOGIN_SERVER = "http://192.168.56.101:9000";
@@ -306,6 +306,78 @@ namespace SampleBot
 			OpenMetaverseClient.Self.AnimationStop (Animations.JUMP_FOR_JOY, false);
 		}
 
+		static public void sayName(string[] paras) {
+			WriteToChat ("My Name is wa ha ha!");
+		}
+
+		static public void sayAge(string[] paras) {
+			WriteToChat ("It's a secret");
+		}
+
+		static public void backflip(string[] paras) {
+			OpenMetaverseClient.Self.AnimationStart (Animations.BACKFLIP, false);
+			WriteToChat ("Oh Yeah");
+			Thread.Sleep (5000);
+			OpenMetaverseClient.Self.AnimationStop (Animations.BACKFLIP, false);
+		}
+
+		private static int danceId = 0;
+		static public void dance(string[] paras) {
+			danceId = danceId % 8 + 1;
+			switch (danceId) {
+				case 1:
+					OpenMetaverseClient.Self.AnimationStart (Animations.DANCE1, false);
+					WriteToChat ("Oh Yeah");
+					Thread.Sleep (5000);
+					OpenMetaverseClient.Self.AnimationStop (Animations.DANCE1, false);
+					break;
+				case 2:
+					OpenMetaverseClient.Self.AnimationStart (Animations.DANCE2, false);
+					WriteToChat ("Oh Yeah");
+					Thread.Sleep (5000);
+					OpenMetaverseClient.Self.AnimationStop (Animations.DANCE2, false);
+					break;
+				case 3:
+					OpenMetaverseClient.Self.AnimationStart (Animations.DANCE3, false);
+					WriteToChat ("Oh Yeah");
+					Thread.Sleep (5000);
+					OpenMetaverseClient.Self.AnimationStop (Animations.DANCE3, false);
+					break;
+				case 4:
+					OpenMetaverseClient.Self.AnimationStart (Animations.DANCE4, false);
+					WriteToChat ("Oh Yeah");
+					Thread.Sleep (5000);
+					OpenMetaverseClient.Self.AnimationStop (Animations.DANCE4, false);
+					break;
+				case 5:
+					OpenMetaverseClient.Self.AnimationStart (Animations.DANCE5, false);
+					WriteToChat ("Oh Yeah");
+					Thread.Sleep (5000);
+					OpenMetaverseClient.Self.AnimationStop (Animations.DANCE5, false);
+					break;
+				case 6:
+					OpenMetaverseClient.Self.AnimationStart (Animations.DANCE6, false);
+					WriteToChat ("Oh Yeah");
+					Thread.Sleep (5000);
+					OpenMetaverseClient.Self.AnimationStop (Animations.DANCE6, false);
+					break;
+				case 7:
+					OpenMetaverseClient.Self.AnimationStart (Animations.DANCE7, false);
+					WriteToChat ("Oh Yeah");
+					Thread.Sleep (5000);
+					OpenMetaverseClient.Self.AnimationStop (Animations.DANCE7, false);
+					break;
+				case 8:
+					OpenMetaverseClient.Self.AnimationStart (Animations.DANCE8, false);
+					WriteToChat ("Oh Yeah");
+					Thread.Sleep (5000);
+					OpenMetaverseClient.Self.AnimationStop (Animations.DANCE8, false);
+					break;
+				default:
+					break;
+			}
+		}
+
 		static public void moveObjectToLocation(string[] paras) {
 			return;
 		}
@@ -388,5 +460,7 @@ namespace SampleBot
 			}
 			WriteToChat (chatText);
 		}
+
+
 	}
 }
